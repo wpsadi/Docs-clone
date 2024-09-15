@@ -127,7 +127,7 @@ io.on("connection",(socket)=>{
 
             },
             data:{
-                content:data.content
+                content:JSON.stringify(data.content)
             },
             select:{id:true}
         })

@@ -56,7 +56,7 @@ export default function DocumentEditorPage() {
   const socketStore = useSocketStore();
   const context = useOutletContext<{
     title: string
-    content: string
+    content: unknown
     id: string
     key: string
   }>();
@@ -201,7 +201,8 @@ export default function DocumentEditorPage() {
     const editor = document.createElement("div");
     wrapper.append(editor);
     const q = new Quill(editor, { theme: "snow",modules,formats });
-    q.setText(context.content)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    q.setContents(context.content as any)
     setShowStartSave(true)
     setQuill(q);
   }, []);
@@ -245,7 +246,7 @@ setInterval(()=>{
       socket?.emit("update-content",{
         id:context.id,
         key:context.key,
-        content:quill.getText()})
+        content:quill.getContents()})
     },intervalTime)
     }
     

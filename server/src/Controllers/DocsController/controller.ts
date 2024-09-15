@@ -50,7 +50,10 @@ export const getDocContent = async (req: any, res: Response) => {
         return res.status(404).json({ error: "Document not found" });
         }
     
-        res.json(doc);
+        res.json({
+            ...doc,
+            content: JSON.parse(doc.content),
+        });
     } catch (error) {
         console.error("Error getting document content:", error);
         res.status(500).json({ error: "Failed to get document content" });
@@ -69,7 +72,12 @@ export const getDocViewContent = async (req: any, res: Response) => {
         return res.status(404).json({ error: "Document not found" });
         }
     
-        res.json(doc);
+        res.json(
+            {
+                ...doc,
+                content: JSON.parse(doc.content),
+            }
+        );
     } catch (error) {
         console.error("Error getting document content:", error);
         res.status(500).json({ error: "Failed to get document content" });
