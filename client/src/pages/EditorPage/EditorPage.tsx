@@ -1,6 +1,6 @@
-import  {  useEffect, useRef, useState } from 'react'
+import  {  useCallback, useEffect, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import ReactQuill from 'react-quill'
+
 import 'react-quill/dist/quill.snow.css'
 
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -9,7 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDocStore } from '@/store/docStore'
 import { useToast } from '@/hooks/use-toast'
+import { useSocketStore } from '@/store/socketStore'
+import Quill from 'quill'
 
+const intervalTime = 1000
 const modules = {
   toolbar: [
     [{ header: '1' }, { header: '2' }, { font: [] }],
@@ -50,19 +53,23 @@ export default function DocumentEditorPage() {
   const navigate = useNavigate()
   const toast = useToast();
   const docStore = useDocStore()
+  const socketStore = useSocketStore();
   const context = useOutletContext<{
     title: string
     content: string
     id: string
     key: string
   }>();
-  const [content, setContent] = useState(context.content || '')
-  const [title, setTitle] = useState(context.title || 'Unable to Load Name')
+  const socket = socketStore.socket;
+  console.log(context)
+  const content = useState(()=>context.content || '')[0]
+  const [title, setTitle] = useState(()=>context.title || 'Unable to Load Name')
   const [collaborators, setCollaborators] = useState(1)
   const [isTitleDialogOpen, setIsTitleDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
-  const quillRef = useRef(null)
+  const [showStartSave, setShowStartSave] = useState(false)
+  // const quillRef = useRef(null)
 
   useEffect(() => {
     // Simulating fetching document data and collaborators
@@ -72,6 +79,8 @@ export default function DocumentEditorPage() {
       setCollaborators(Math.floor(Math.random() * 5) + 1)
     }, 1000)
   }, [])
+
+ 
 
   const handleSave = () => {
     // Implement save functionality here
@@ -92,6 +101,7 @@ export default function DocumentEditorPage() {
       title: 'Failed to update title',
       description: 'An error occurred while updating the document title',
     })
+    socket?.emit("update-doc-title",{id:context.id,title:newTitle})
     setTitle(newTitle)
     
     setIsTitleDialogOpen(false)
@@ -115,11 +125,132 @@ export default function DocumentEditorPage() {
       title: 'Failed to ',
       description: 'An error occurred while updating the document title',
     })
-    console.log('Deleting document:', { title })
+    // console.log('Deleting document:', { title })
+
+    socket?.emit("del-doc",{id:context.id})
 
     setIsDeleteDialogOpen(false)
     navigate('/dashboard')
   }
+
+  useEffect(()=>{
+    socket?.on("delete-doc",()=>{
+      toast.toast({
+        title: 'Document Deleted',
+        description: 'The document has been deleted by the owner',
+      })
+      navigate('/dashboard')
+    })
+  },[socket])
+
+  useEffect(()=>{
+    // join-doc-room
+    socket?.emit("join-doc-room",context.id)
+  },[socket])
+
+  // updating the title from the server
+  useEffect(()=>{
+    socket?.on("update-doc-title",(data:string)=>{
+      console.log("Title updated")
+      toast.toast({
+        title: 'Title updated',
+        description: 'Title has been updated',
+      })
+      console.log(data)
+      setTitle(data)
+    })
+  },[socket])
+
+
+
+  useEffect(()=>{
+    socket?.on("update-realtime-collaborators",(data)=>{
+      console.log("Collaborators updated")
+      toast.toast({
+        title: 'Collaborators updated',
+        description: 'Collaborators have been updated',
+      })
+      setCollaborators(data)
+    })
+  },[socket])
+
+  useEffect(()=>{
+    socket?.on("join-doc-error",()=>{
+      console.log("Error joining the document room")
+      toast.toast({
+        title: 'Error',
+        description: 'Error joining the document room',
+    })
+  })},[socket])
+
+
+  useEffect(()=>{
+    socketStore.createConnection(context.id,context.key);
+
+    return ()=>{
+      socket?.emit("leave-doc",context.id)
+      socketStore.closeSocket()
+    };
+  },[])
+
+  const [quill, setQuill] = useState<Quill | null>(null);
+
+  const wrapperRef = useCallback((wrapper: HTMLDivElement | null) => {
+    if (!wrapper) return;
+    wrapper.innerHTML = "";
+    const editor = document.createElement("div");
+    wrapper.append(editor);
+    const q = new Quill(editor, { theme: "snow",modules,formats });
+    q.setText(context.content)
+    setShowStartSave(true)
+    setQuill(q);
+  }, []);
+  useEffect(() => {
+    if (!quill || !socket) return;
+    console.log("Setting up quill");
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const handler = function (delta, oldDelta, source) {
+      console.log("Text change detected", delta, oldDelta, source);
+      if (source !== "user") return;
+
+      console.log("A user action triggered this change.");
+      socket?.emit("send-changes", {
+        delta,
+        id: context.id,
+      });
+    };
+
+    console.log("Setting content",content)
+    // quill.setText(content)
+    
+
+    socket?.on("receive-changes", (delta) => {
+      console.log("Received changes from server", delta);
+      quill.updateContents(delta);
+    });
+    quill?.on("text-change", handler);
+
+    return () => {
+      socket?.off("receive-changes", handler);
+    };
+  }, [quill, socket]);
+
+  // saving the content
+  useEffect(()=>{
+    if (!quill || !socket) return;
+    
+    if (showStartSave){
+setInterval(()=>{
+      socket?.emit("update-content",{
+        id:context.id,
+        key:context.key,
+        content:quill.getText()})
+    },intervalTime)
+    }
+    
+
+  },[socket,quill,showStartSave])
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
@@ -163,7 +294,9 @@ export default function DocumentEditorPage() {
       <main className="flex-1 overflow-hidden">
         <div className="max-w-4xl mx-auto h-full p-4">
           <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg h-full">
-            <ReactQuill
+          {/* {
+          
+          <ReactQuill
               modules={modules}
               formats={formats}
               theme="snow"
@@ -172,6 +305,9 @@ export default function DocumentEditorPage() {
               className="h-full"
               ref={quillRef}
             />
+          } */}
+          <div ref={wrapperRef} className="h-full" />
+            
           </div>
         </div>
       </main>

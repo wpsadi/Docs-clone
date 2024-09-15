@@ -135,13 +135,13 @@ const MainContent = () => {
   useEffect(() => {
     const socket = io("http://localhost:3000");
     setSocket(socket);
-    socket.on("connect", () => {
-      console.log("connected");
-    });
-    socket.on("message", (message) => {
-      console.log(message);
-    });
-    socket.emit("message", "hello");
+      socket.on("connect", () => {
+        console.log("connected");
+      });
+      socket.on("message", (message) => {
+        console.log(message);
+      });
+      socket.emit("message", "hello");
     return () => {
       socket.disconnect();
       setSocket(null);

@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import authRouter from "./Routes/AuthRoutes";
 import docRouter from "./Routes/DocRoutes";
+import { Prisma } from "./prisma/prisma";
 const app = express();
 
 
@@ -65,9 +66,75 @@ io.on("connection",(socket)=>{
     socket.on("send-changes",(data)=>{
         console.log(data,"broadcasting it")
         // io.to(socket.id).emit('receive-changes',`${socket.id.substr(0,2)} made chnged ${JSON.stringify(data)}`)
-        socket.broadcast.emit("receive-changes",data)
+        socket.broadcast.to(data.id).emit("receive-changes",data.delta)
 
     })
+
+    socket.on("join-doc",async (data:{
+        id:string,
+        key:string
+    })=>{
+        const {id,key} = data
+        const checkDocExists = await Prisma.docs.findFirst({
+            where:{
+                id,
+                key
+            },
+            select:{id:true}
+        })
+
+        if (!checkDocExists){
+            return socket.emit("join-doc-error","Document not found")
+        }
+
+        socket.emit("message","Document found")
+        socket.emit("message","Joining document room "+checkDocExists.id)
+        // console.log(socket.rooms.entries())
+
+        socket.join(checkDocExists.id)
+        const roomSize = io.sockets.adapter.rooms.get(checkDocExists.id)?.size || 0
+        socket.broadcast.to(checkDocExists.id).emit("update-realtime-collaborators", roomSize);
+    })
+
+    socket.on("del-doc",async (data:{
+        id:string
+    })=>{
+        socket.broadcast.to(data.id).emit("delete-doc",data.id)
+        socket.leave(data.id)
+    })
+
+    socket.on("leave-doc",async (id)=>{
+        "Leaving document room"
+        socket.leave(id)
+        const roomSize = io.sockets.adapter.rooms.get(id)?.size || 0
+        socket.broadcast.to(id).emit("update-realtime-collaborators", roomSize);
+    })
+
+    socket.on("update-doc-title",(data:{id:string,title:string})=>{
+        socket.broadcast.to(data.id).emit("update-doc-title",data.title)
+    })
+
+    socket.on("update-content",async(data:{
+        id:string,
+        key:string
+        content:string
+    })=>{
+        console.log(data)
+        const result=await Prisma.docs.update({
+            where:{
+                id:data.id,
+                // key:data.key
+
+            },
+            data:{
+                content:data.content
+            },
+            select:{id:true}
+        })
+
+    })
+
+    
 
 
 

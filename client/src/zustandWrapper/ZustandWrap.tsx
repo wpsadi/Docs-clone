@@ -9,12 +9,12 @@ const {listDocs} = useDocStore();
   React.useEffect(() => {
     reinstateSession();
     listDocs();
-    const intervalId = setInterval(reinstateSession, 2000);
+    // const intervalId = setInterval(reinstateSession, 2000);
 
 
     
     return ()=>{
-        clearInterval(intervalId);
+        // clearInterval(intervalId);
     }
   }, [isLoggedIn]);
 

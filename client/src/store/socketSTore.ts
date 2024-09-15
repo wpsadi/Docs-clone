@@ -1,46 +1,68 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { persist } from "zustand/middleware";
-
-
-// export interface UserPrefs {
-//   reputation: number
-// }
+import { io, Socket } from "socket.io-client";
 
 interface ISocketStore {
-
-  hydrated: boolean
+  socket: Socket | null;
+  createConnection(id :string , key:string): void;
+  closeSocket(): void;
+  hydrated: boolean;
 
   setHydrated(): void;
-
 }
 
-
-export const useAuthStore = create<ISocketStore>()(
+export const useSocketStore = create<ISocketStore>()(
   persist(
-    immer((set) => ({
-   
+    immer((set, get) => ({
+      socket: null,
+      createConnection(id,key) {
+        // Keep the socket only in memory, not in local storage
+        const socket = io("http://localhost:3000");
+
+        socket.on("connect", () => {
+          console.log("connected");
+        });
+        socket.on("message", (message) => {
+          console.log(message);
+        });
+
+        socket.emit("join-doc", {
+            id,
+            key,
+        });
+
+        // Use set to update socket but exclude it from persistence
+        set((state) => {
+          state!.socket = socket; // Stored in-memory, not persisted
+        });
+      },
+
+      closeSocket() {
+        get().socket?.disconnect();
+        set((state) => {
+          state.socket = null;
+        });
+      },
+
       hydrated: false,
 
       setHydrated() {
-        set({hydrated: true})
+        set((state) => {
+          state.hydrated = true;
+        });
       },
-
-     
-
-     
-
-     
-
-     
     })),
     {
       name: "socket",
-      onRehydrateStorage(){
+      partialize: (state) => ({ hydrated: state.hydrated }), // Only persist 'hydrated'
+      onRehydrateStorage() {
         return (state, error) => {
-          if (!error) state?.setHydrated()
-        }
-      }
+          if (!error) state?.setHydrated();
+        };
+      },
     }
   )
-)
+);
