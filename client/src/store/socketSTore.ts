@@ -23,10 +23,10 @@ export const useSocketStore = create<ISocketStore>()(
         const socket = io("http://localhost:3000");
 
         socket.on("connect", () => {
-          console.log("connected");
+          // console.log("connected");
         });
         socket.on("message", (message) => {
-          console.log(message);
+          // console.log(message);
         });
 
         socket.emit("join-doc", {

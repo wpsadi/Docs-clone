@@ -135,13 +135,13 @@ const MainContent = () => {
   useEffect(() => {
     const socket = io("http://localhost:3000");
     setSocket(socket);
-      socket.on("connect", () => {
-        console.log("connected");
-      });
-      socket.on("message", (message) => {
-        console.log(message);
-      });
-      socket.emit("message", "hello");
+    socket.on("connect", () => {
+      //  // console.log("connected");
+    });
+    socket.on("message", (message) => {
+      // // console.log(message);
+    });
+    socket.emit("message", "hello");
     return () => {
       socket.disconnect();
       setSocket(null);
@@ -150,18 +150,18 @@ const MainContent = () => {
 
   useEffect(() => {
     if (!quill || !SOCKET) return;
-    console.log("Setting up quill");
+    // // console.log("Setting up quill");
     // @ts-ignore
     const handler = function (delta, oldDelta, source) {
-      console.log("Text change detected", delta, oldDelta, source);
+      // // console.log("Text change detected", delta, oldDelta, source);
       if (source !== "user") return;
 
-      console.log("A user action triggered this change.");
+      // // console.log("A user action triggered this change.");
       SOCKET?.emit("send-changes", delta);
     };
 
     SOCKET?.on("receive-changes", (delta) => {
-      console.log("Received changes from server", delta);
+      // // console.log("Received changes from server", delta);
       quill.updateContents(delta);
     });
     quill?.on("text-change", handler);
