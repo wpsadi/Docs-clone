@@ -4,8 +4,8 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "start": "node -r ./env.config.js dist/index.js",
-    "dev": "nodemon --watch src/**/*.ts --watch env.config.ts --exec tsx -r ./env.config.ts src/index.ts",
+    "start": "node -r env.config.js dist/index.js",
+    "dev": "nodemon --watch src/**/*.ts --watch env.config.ts --exec tsx -r env.config.ts src/index.ts",
     "build": "tsc"
   },
   "keywords": [],
